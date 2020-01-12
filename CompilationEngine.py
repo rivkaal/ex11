@@ -13,6 +13,7 @@ import VMWriter as VM
 LABELS_IN_IF_IMPLEMENTATION = 2
 
 #hey!!!
+#,kermlk
 class Parsing:
 
     subDecList = {'constructor', 'function', 'method'}
