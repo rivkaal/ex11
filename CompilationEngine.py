@@ -271,15 +271,24 @@ class Parsing:
         """
         Compiles a while statement
         """
+        l1 = "L" + str(self.label_count)
+        l2 = "L" + str(self.label_count + 1)
+        self.label_count += LABELS_IN_WHILE_IMPLEMENTATION
+        self.VM.writeLabel(l1)
         self.eat('while')
         self.eat('(')
         self.CompileExpression()
         self.eat(')')
+        self.VM.writeArithmetic('not')
+        self.VM.writeIf(l2)
+
         self.eat('{')
-        self.outFile.write('<statements>\n')
+        # self.outFile.write('<statements>\n')
         self.compileStatements()
-        self.outFile.write('</statements>\n')
+        # self.outFile.write('</statements>\n')
         self.eat('}')
+        self.VM.writeGoto(l1)
+        self.VM.writeLabel(l2)
         return
 
     def compileReturn(self):
@@ -289,7 +298,10 @@ class Parsing:
         self.eat('return')
         if self.myToken.tokenType() != 'symbol':
             self.CompileExpression()
+        else:
+            self.VM.writePush('constant', 0)
         self.eat(';')
+        self.VM.writeReturn()
         return
 
     def compileIf(self):
@@ -321,6 +333,7 @@ class Parsing:
             self.eat('}')
             self.VM.writeLabel(l2)
         return
+
 
     def CompileExpression(self):
         """
