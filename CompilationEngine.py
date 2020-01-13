@@ -6,18 +6,14 @@ methods is that each compilexxx() method should read the syntactic construct xxx
 advance() the tokenizer exactly beyond xxx, and output the XML parsing of xxx. Thus,
 compilexxx()may only be called if indeed xxx is the next syntactic element of the input.
 """
-
 import SymbolTable as ST
 import VMWriter as VM
 
 LABELS_IN_IF_IMPLEMENTATION = 2
+LABELS_IN_WHILE_IMPLEMENTATION = 2
 
-def getConstValue(val):
-    if val == "true":
-        return -1
-    else:
-        return 0
-    
+#hey!!!
+#,kermlk
 class Parsing:
 
     subDecList = {'constructor', 'function', 'method'}
@@ -33,7 +29,7 @@ class Parsing:
         The next method called must be compileClass().
         :param input:stream/file
         """
-        self.outFile = open(path, 'w')
+
         self.VM = VM.VMWriter(path)
         self.myToken = token
         self.myToken.advance()
@@ -50,7 +46,7 @@ class Parsing:
         """
         self.myToken.advance()
         if self.myToken.tokenType() == 'identifier':
-            className = self.myToken.identifier()
+            self.className = self.myToken.identifier()
             self.eat()
         if self.myToken.tokenType() == 'symbol':
             self.eat('{')
@@ -60,11 +56,13 @@ class Parsing:
                     self.CompileClassVarDec()
             while(self.myToken.keyWord() in self.subDecList):
                 if self.myToken.keyWord() == 'method':
-                    self.subTable.define('this', className, 'argument')
+                    self.subTable.define('this', self.className, 'argument')
                 self.CompileSubroutine()
         self.eat('}')
-        self.outFile.write('</class>\n')
         return
+
+
+
 
     def CompileClassVarDec(self):
         """
@@ -104,34 +102,40 @@ class Parsing:
         compiles a complete method, function, or constructor.
         :return:
         """
+        count = 0
+        ifMethod = False
+        self.subTable.startSubroutine()
         if self.myToken.tokenType() == 'keyword':
             self.eat()
         if self.myToken.tokenType() =='keyword':
             if self.myToken.keyWord() not in self.classVarTypes:
-                self.eat('void') #!!!!! some void push and pomp..
+                self.eat('void')
             else:
+                if self.myToken.keyWord() == 'method':
+                    ifMethod = True
+                    count += 1
+                    self.subTable.define('this', self.className, 'argument')
                 self.eat()
         elif self.myToken.tokenType() == 'identifier':
             self.eat()
         else : print('expected something else')
         if self.myToken.tokenType() == 'identifier':
+            name  = self.myToken.identifier()
             self.eat()
         else: print('expected something else')
         self.eat('(')
-        self.compileParameterList()
+        count += self.compileParameterList()
         self.eat(')')
-        self.outFile.write('<subroutineBody>\n')
+        self.VM.writeFunction((self.className + '.'+name), count)
         self.eat('{')
         if (self.myToken.tokenType() == 'keyword' and self.myToken.keyWord() == 'var'):
             while (self.myToken.tokenType() == 'keyword' and self.myToken.keyWord() == 'var'):
-                self.outFile.write('<varDec>\n')
                 self.compileVarDec()
-                self.outFile.write('</varDec>\n')
-        self.outFile.write('<statements>\n')
+        if ifMethod:
+            self.VM.writePush('argument', 0)
+            self.VM.writePOP('pointer', 0)
         self.compileStatements()
-        self.outFile.write('</statements>\n')
         self.eat('}')
-        self.outFile.write('</subroutineBody>\n')
 
 
 
@@ -144,9 +148,10 @@ class Parsing:
         :return:
         """
         if self.myToken.tokenType() == 'symbol' and self.myToken.symbol() == ')':
-            return
-
+            return 0
+        count = 0
         while (self.myToken.tokenType() != 'symbol' or self.myToken.symbol() != ')'):
+            count += 1
             if self.myToken.tokenType() == 'symbol':
                 self.eat(',')
             if self.myToken.tokenType() == 'identifier':
@@ -159,6 +164,7 @@ class Parsing:
                 name = self.myToken.identifier()
                 self.subTable.define(name, type, 'argument')
                 self.eat()
+        return count
 
     def compileVarDec(self):
         """
@@ -192,25 +198,15 @@ class Parsing:
         """
         while(self.myToken.tokenType() != 'symbol' or self.myToken.symbol() != '}'):
             if self.myToken.keyWord() == 'let':
-                self.outFile.write('<letStatement>\n')
                 self.compileLet()
-                self.outFile.write('</letStatement>\n')
             elif self.myToken.keyWord() == 'if':
-                self.outFile.write('<ifStatement>\n')
                 self.compileIf()
-                self.outFile.write('</ifStatement>\n')
             elif self.myToken.keyWord() == 'while':
-                self.outFile.write('<whileStatement>\n')
                 self.compileWhile()
-                self.outFile.write('</whileStatement>\n')
             elif self.myToken.keyWord() == 'do':
-                self.outFile.write('<doStatement>\n')
                 self.compileDo()
-                self.outFile.write('</doStatement>\n')
             elif self.myToken.keyWord() == 'return':
-                self.outFile.write('<returnStatement>\n')
                 self.compileReturn()
-                self.outFile.write('</returnStatement>\n')
         return
 
     def compileDo(self):
@@ -232,16 +228,17 @@ class Parsing:
             if funcName in self.subTable:
                 k = self.subTable.getKind(funcName)
                 i = self.subTable.getIndex(funcName)
+                self.VM.writePush(k, i)
             elif funcName in self.classTable:
                 k = self.classTable.getKind(funcName)
                 i = self.classTable.getIndex(funcName)
-            self.VM.writePush(k, i)
+                self.VM.writePush(k, i)
             funcName = self.myToken.identifier()
             self.eat()
             self.eat('(')
             count = self.CompileExpressionList()
             self.eat(')')
-            self.VM.writeCall(funcName, count + 1)
+        self.VM.writeCall(funcName, count + 1)
         self.eat(';')
         self.VM.writePOP('temp', 0)
         return
@@ -258,17 +255,54 @@ class Parsing:
         elif name in self.classTable:
             key = self.classTable.getKind(name)
             i = self.classTable.getIndex(name)
-        self.VM.writePush(key, i)
+        self.eat()
         if (self.myToken.symbol() == '['):
             self.eat('[')
+            self.VM.writePush(key, i)
             self.CompileExpression()
             self.VM.writeArithmetic('add')
             self.eat(']')
-        self.VM.writePOP('pointer', 1)
+            self.VM.writePOP('pointer', 1)
+            key = 'that'
+            i = 0
         self.eat('=')
         self.CompileExpression()
-        self.VM.writePOP('that', 0)
+        self.VM.writePOP(key, i)
         self.eat(';')
+        return
+
+    def compileCall(self):
+        if self.myToken.tokenType() == 'identifier':
+            name = self.myToken.identifier()
+            self.eat()
+
+        if self.myToken.symbol() == '(':
+            self.eat('(')
+            count = self.CompileExpressionList()
+            self.eat(')')
+        else:
+            self.eat('.')
+            count = 0
+            if name in self.subTable:
+                className = self.subTable.getKind(name)
+                i = self.subTable.getIndex(name)
+                count += 1
+                self.VM.writePush('pointer', 0)
+            elif name in self.classTable:
+                className = self.classTable.getKind(name)
+                i = self.classTable.getIndex(name)
+                count += 1
+                self.VM.writePush('pointer', 0)
+            else:
+                className = name
+                name = self.myToken.identifier()
+            self.eat()
+            self.eat('(')
+            count += self.CompileExpressionList()
+            self.eat(')')
+        self.VM.writeCall((className+'.'+name), count)
+        self.eat(';')
+        self.VM.writePOP('temp', 0)
         return
 
     def compileWhile(self):
@@ -287,9 +321,7 @@ class Parsing:
         self.VM.writeIf(l2)
 
         self.eat('{')
-        # self.outFile.write('<statements>\n')
         self.compileStatements()
-        # self.outFile.write('</statements>\n')
         self.eat('}')
         self.VM.writeGoto(l1)
         self.VM.writeLabel(l2)
@@ -322,18 +354,14 @@ class Parsing:
         self.VM.writeArithmetic('not')
         self.VM.writeIf("L" + l1)
         self.eat('{')
-        # self.outFile.write('<statements>\n')
         self.compileStatements()
-        # self.outFile.write('</statements>\n')
         self.eat('}')
         self.VM.writeGoto(l2)
         self.VM.writeLabel(l1)
         if self.myToken.tokenType() == 'keyword' and self.myToken.keyWord() == 'else':
             self.eat('else')
             self.eat('{')
-            self.outFile.write('<statements>\n')
             self.compileStatements()
-            self.outFile.write('</statements>\n')
             self.eat('}')
             self.VM.writeLabel(l2)
         return
@@ -349,32 +377,33 @@ class Parsing:
             self.eat() #eating operation
             self.CompileTerm()
             if op in self.opDic:
-                self.VM.writeArithmetic(op)
+                self.VM.writeArithmetic(self.opDic[op])
             elif op =='*':
                 self.VM.writeCall('Math.multiply', 2)
             elif op == '/':
                 self.VM.writeCall('Math.divide', 2)
-        self.outFile.write('</expression>\n')
 
     def CompileTerm(self):
         """
          compiles a term.
         """
-        self.outFile.write('<term>\n')
         if self.myToken.tokenType() == 'integerConstant':
-            self.VM.writePush('const', self.myToken.intVal())
+            self.VM.writePush('constant', self.myToken.intVal())
             self.eat()
         elif self.myToken.tokenType() == 'stringConstant':
-            self.VM.writePush('const', self.myToken.stringVal)
+            self.handle_string(self.myToken.stringVal())
             self.eat()
         elif self.myToken.tokenType() == 'keyword' and self.myToken.keyWord() in self.keywordConst:
+            self.VM.writePush('constant', self.getConstValue(self.myToken.keyWord()))
             self.eat()
         elif self.myToken.tokenType() == 'identifier':
             name = self.myToken.identifier()
             if name in self.subTable:
-                self.VM.writePush(self.subTable.getKind(name), self.subTable.getIndex(name))
+                namefull = self.subTable.getKind(name)
+                self.VM.writePush(namefull, self.subTable.getIndex(name))
             elif name in self.classTable:
-                self.VM.writePush(self.classTable.getKind(name), self.classTable.getIndex(name))
+                namefull = self.classTable.getKind(name)
+                self.VM.writePush(namefull, self.classTable.getIndex(name))
             self.eat()
             if self.myToken.tokenType() == 'symbol' and self.myToken.symbol() == '[':
                 self.eat('[')
@@ -387,10 +416,12 @@ class Parsing:
                 self.eat(')')
             elif self.myToken.tokenType() == 'symbol' and self.myToken.symbol() == '.':
                 self.eat('.')
+                funcName = self.myToken.identifier()
                 self.eat()
                 self.eat('(')
-                self.CompileExpressionList()
+                count = self.CompileExpressionList()
                 self.eat(')')
+                self.VM.writeFunction(name + '.'+funcName, count)
         elif self.myToken.tokenType() == 'symbol':
             if self.myToken.symbol() == '(':
                 self.eat('(')
@@ -399,7 +430,6 @@ class Parsing:
             else:
                 self.eat() #unaryOp or .
                 self.CompileTerm()
-        self.outFile.write('</term>\n')
         return
 
     def CompileExpressionList(self):
@@ -414,7 +444,6 @@ class Parsing:
             self.eat(',')
             self.CompileExpression()
             count += 1
-        self.outFile.write('</expressionList>\n')
         return count
 
     def eat(self, string = ''):
@@ -446,14 +475,29 @@ class Parsing:
 
 
     def write(self, word):
-        self.outFile.write('<'+self.myToken.tokenType()+'> ')
-        word = word.replace('&', '&amp;')
-        word = word.replace('<', '&lt;')
-        word = word.replace('>', '&gt;')
-        self.outFile.write(word)
-        self.outFile.write(' </' + self.myToken.tokenType() + '>\n')
+        pass
 
     def ifClassVarDec(self):
         if (self.myToken.keyWord() == 'static' or self.myToken.keyWord() == 'field'):
             return True
         return False
+
+
+    def getConstValue(self,val):
+        if val == "true":
+            return -1
+        else:
+            return 0
+
+    def handle_string(self, term):
+        """
+        Handle translation of a string object
+        :param term: term that contains the string
+        :return:
+        """
+        self.VM.writePush('constant', len(term))
+        self.VM.writeFunction('String.new', 1)
+        for char in term:
+            self.VM.writePush('constant', ord(char))
+            self.VM.writeFunction('String.appendChar', 2)
+        return
