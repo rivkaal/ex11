@@ -12,8 +12,12 @@ import VMWriter as VM
 
 LABELS_IN_IF_IMPLEMENTATION = 2
 
-#hey!!!
-#,kermlk
+def getConstValue(val):
+    if val == "true":
+        return -1
+    else:
+        return 0
+    
 class Parsing:
 
     subDecList = {'constructor', 'function', 'method'}
