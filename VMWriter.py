@@ -21,10 +21,13 @@ class VMWriter:
     def writeGoto(self, label):
         self.out_file.write("goto " + label + '\n')
 
+    def writeIf(self, label):
+        self.out_file.write("if-goto " + label + '\n')
+
     def writeCall(self, name, nArgs):
         self.out_file.write("call " + name + " " + str(nArgs))
 
-    def writeFunction(self, name, nLocals):     # TODO what about constructor?
+    def writeFunction(self, name, nLocals):
         self.out_file.write("function " + name + " " + str(nLocals))
 
     def writeReturn(self):
@@ -32,3 +35,4 @@ class VMWriter:
 
     def close(self):
         self.out_file.close()
+
