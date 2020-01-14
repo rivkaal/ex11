@@ -1,0 +1,32 @@
+eranhashmo,revekka lvov
+===============================================================================
+Eran Hashmonay, ID 308281435, eran.chashmonay@mail.huji.ac.il
+Revekka lvov, ID 337827265, revekka.lvov@mail.huji.ac.il
+===============================================================================
+
+                           Project 10 - JackAnalyzer
+                           ----------------------- 
+  
+Submitted Files
+---------------
+README - This file.
+Makefile - Make file for project 10
+
+JackCompiler.py - The main class, manages the analyzing process.
+                If a single jack file is given as input, analyze it and output 
+                a corresponding xml file.
+                If a directory iis given, Analyze all jack files in given
+                directory.
+
+CompilationEngine.py - receive input from the Tokenizer and emit it's parsed
+                 structure into an output xml file.
+
+Tokenizer.py- receive a jack file from JackAnalyzer, remove all comments and
+         space characters and give parsed tokens to the CompilationEngine on
+         demand and according to their apearance in the input file.
+
+Token.py - A class representing a single parsed token
+VMWriter.py - A class that writes vm files
+SymbolTable - A class representing table for the variables, arguments etc
+
+#weallareMoshick
