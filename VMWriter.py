@@ -7,7 +7,11 @@ class VMWriter:
         self.out_file = open(file_path, 'w')
 
     def writePush(self, segment, index):
-        self.out_file.write("push " + segment + " " + str(index) + '\n')
+        if index < 0:
+            self.out_file.write("push " + segment + " " + str(0) + '\n')
+            self.out_file.write('not \n')
+        else:
+            self.out_file.write("push " + segment + " " + str(index) + '\n')
 
     def writePOP(self, segment, index):
         self.out_file.write("pop " + segment + " " + str(index) + '\n')
@@ -25,14 +29,13 @@ class VMWriter:
         self.out_file.write("if-goto " + label + '\n')
 
     def writeCall(self, name, nArgs):
-        self.out_file.write("call " + name + " " + str(nArgs))
+        self.out_file.write("call " + name + " " + str(nArgs)+'\n')
 
-    def writeFunction(self, name, nLocals):
-        self.out_file.write("function " + name + " " + str(nLocals))
+    def writeFunction(self, name, nLocals):     # TODO what about constructor?
+        self.out_file.write("function " + name + " " + str(nLocals)+'\n')
 
     def writeReturn(self):
-        self.out_file.write("return")
+        self.out_file.write("return" + '\n')
 
     def close(self):
         self.out_file.close()
-
