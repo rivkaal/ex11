@@ -113,7 +113,6 @@ class Parsing:
             else:
                 if self.myToken.keyWord() == 'method':
                     ifMethod = True
-                    count += 1
                     self.subTable.define('this', self.className, 'argument')
                 self.eat()
         elif self.myToken.tokenType() == 'identifier':
@@ -124,13 +123,13 @@ class Parsing:
             self.eat()
         else: print('expected something else')
         self.eat('(')
-        count += self.compileParameterList()
+        self.compileParameterList()
         self.eat(')')
-        self.VM.writeFunction((self.className + '.'+name), count)
         self.eat('{')
         if (self.myToken.tokenType() == 'keyword' and self.myToken.keyWord() == 'var'):
             while (self.myToken.tokenType() == 'keyword' and self.myToken.keyWord() == 'var'):
-                self.compileVarDec()
+                count +=self.compileVarDec()
+        self.VM.writeFunction((self.className + '.'+name), count)
         if ifMethod:
             self.VM.writePush('argument', 0)
             self.VM.writePOP('pointer', 0)
@@ -171,6 +170,7 @@ class Parsing:
         compiles a var declaration.
         :return:
         """
+        count = 0
         self.eat('var')
         if self.myToken.tokenType() == 'keyword':
             if self.myToken.keyWord() in self.classVarTypes :
@@ -183,13 +183,15 @@ class Parsing:
             name = self.myToken.identifier()
             self.eat()
         self.subTable.define(name, type, 'var')
+        count +=1
         while (self.myToken.symbol() == ','):
             self.eat(',')
             name = self.myToken.identifier()
             self.eat()
             self.subTable.define(name, type, 'var')
+            count +=1
         self.eat(';')
-        return
+        return count
 
     def compileStatements(self):
         """
@@ -214,6 +216,7 @@ class Parsing:
         Compiles a do statement
         :return:
         """
+        count = 0
         self.eat('do')
         if self.myToken.tokenType() == 'identifier':
             funcName = self.myToken.identifier()
@@ -229,16 +232,20 @@ class Parsing:
                 k = self.subTable.getKind(funcName)
                 i = self.subTable.getIndex(funcName)
                 self.VM.writePush(k, i)
+                funcName = self.subTable.getType()
+                count +=1
             elif funcName in self.classTable:
                 k = self.classTable.getKind(funcName)
                 i = self.classTable.getIndex(funcName)
                 self.VM.writePush(k, i)
-            funcName = self.myToken.identifier()
+                funcName = self.classTable.getType()
+                count +=1
+            name = self.myToken.identifier()
             self.eat()
             self.eat('(')
-            count = self.CompileExpressionList()
+            count += self.CompileExpressionList()
             self.eat(')')
-        self.VM.writeCall(funcName, count + 1)
+        self.VM.writeCall((funcName + '.' + name), count)
         self.eat(';')
         self.VM.writePOP('temp', 0)
         return
@@ -352,7 +359,7 @@ class Parsing:
         self.CompileExpression()
         self.eat(')')
         self.VM.writeArithmetic('not')
-        self.VM.writeIf("L" + l1)
+        self.VM.writeIf(l1)
         self.eat('{')
         self.compileStatements()
         self.eat('}')
@@ -421,15 +428,16 @@ class Parsing:
                 self.eat('(')
                 count = self.CompileExpressionList()
                 self.eat(')')
-                self.VM.writeFunction(name + '.'+funcName, count)
+                self.VM.writeCall(name + '.'+funcName, count)
         elif self.myToken.tokenType() == 'symbol':
             if self.myToken.symbol() == '(':
                 self.eat('(')
                 self.CompileExpression()
                 self.eat(')')
             else:
-                self.eat() #unaryOp or .
+                self.eat() #unaryOp or
                 self.CompileTerm()
+                self.VM.writeArithmetic('neg')
         return
 
     def CompileExpressionList(self):
@@ -496,8 +504,9 @@ class Parsing:
         :return:
         """
         self.VM.writePush('constant', len(term))
-        self.VM.writeFunction('String.new', 1)
+        self.VM.writeCall('String.new', 1)
         for char in term:
             self.VM.writePush('constant', ord(char))
-            self.VM.writeFunction('String.appendChar', 2)
+            self.VM.writeCall('String.appendChar', 2)
         return
+   
